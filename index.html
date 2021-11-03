@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<body>
+  <script src="http://d3js.org/d3.v3.min.js"></script>
+  <script src="http://d3js.org/topojson.v1.min.js"></script>
+  <script src="http://d3js.org/queue.v1.min.js"></script>
+  <script>
+
+  var width = 667,
+  height = 500;
+
+  var projection = d3.geo.orthographic()
+  .scale(245)
+  .rotate([180, 0])
+  .translate([width / 2, height / 2])
+  .clipAngle(90);
+
+  var canvas = d3.select("body").append("canvas")
+  .attr("width", width)
+  .attr("height", height);
+
+  var c = canvas.node().getContext("2d");
+
+  var path = d3.geo.path()
+  .projection(projection)
+  .context(c);
+
+  function getImage(path, callback) {
+    var img = new Image();
+    img.src = path;
+    img.onload = callback(null, img);
+  }
+
+  queue()
+  .defer(d3.json, "/d/5685937/world-110m.json")
+  .defer(d3.tsv, "/d/5685937/world-110m-country-names.tsv")
+  .defer(getImage, "http://habrastorage.org/storage2/838/805/0a1/8388050a1aa300e23dfc2c93689d6f7a.jpg")
+  .await(ready);
+
+  //Main function
+
+  function ready(error, world, countryData, space) {
+
+    var globe = {type: "Sphere"},
+    land = topojson.feature(world, world.objects.land),
+    borders = topojson.mesh(world, world.objects.countries, function(a, b) { return a !== b; });
+
+    console.log(error);    
+
+    //Earth rotating
+
+    (function transition() {
+      d3.transition()
+      .duration(15000)
+      .ease("linear")
+      .tween("rotate", function() {
+        var r = d3.interpolate(projection.rotate(), [-180, 0]);
+        return function(t) {
+          projection.rotate(r(t));
+          c.clearRect(0, 0, width, height);
+          c.drawImage(space, 0, 0);
+          c.fillStyle = "#00006B", c.beginPath(), path(globe), c.fill();
+          c.fillStyle = "#29527A", c.beginPath(), path(land), c.fill();
+          c.strokeStyle = "#fff", c.lineWidth = .5, c.beginPath(), path(borders), c.stroke();
+          projection.rotate([180, 0]);
+            };
+          })     
+      .transition().duration(30).ease("linear")
+      .each("end", transition);
+    })();
+  };
+  </script>
+</body>
